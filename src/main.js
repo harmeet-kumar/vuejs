@@ -7,8 +7,15 @@ import "./assets/main.css";
 require("vue-ionicons/ionicons.css");
 Vue.config.productionTip = false;
 
+
+
+// Ensure we checked auth before each page load.
+router.beforeEach((to, from, next) =>
+  Promise.all([store.dispatch("checkAuth")]).then(next)
+);
+
 new Vue({
-  router,
+  router : router,
   store,
   render: h => h(App)
 }).$mount("#app");

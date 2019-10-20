@@ -1,14 +1,14 @@
 <template>
   <nav class="navbar navbar-light">
     <div class="container">
-      <a class="navbar-brand" href="index.html">Kratos</a>
+      <router-link class="navbar-brand" to="/">Kratos</router-link>
       <ul class="nav navbar-nav pull-xs-right">
         <li class="nav-item">
           <!-- Add "active" class when you're on that page" -->
           <router-link to="/" class="nav-link active">Home</router-link>
         </li>
         <li class="nav-item">
-          <router-link to="/create_article" class="nav-link">
+          <router-link to="/create_article" v-if="username != null" class="nav-link">
             <i class="ion-compose"></i>&nbsp;New Post
           </router-link>
         </li>
@@ -25,7 +25,8 @@
         </li>
         <li class="nav-item" v-if="username">
           <router-link :to="`/${username}`" class="nav-link">
-            <i class="ion-gear-a"></i>&nbsp;
+            &nbsp;
+            <img :src="image" class="user-pic" />
             {{ username }}
           </router-link>
         </li>
@@ -35,17 +36,29 @@
 </template>
 
 <script>
+import store from "../store"
+
 export default {
+  data: function() {
+    return {
+      img: ""
+    };
+  },
   computed: {
     username() {
-      return this.$store.getters["users/user"]
-        ? this.$store.getters["users/user"].username
+      return store.getters["user"]
+        ? store.getters["user"].username
+        : null;
+    },
+    image() {
+      return store.getters["user"]
+        ? store.getters["user"].image
         : null;
     }
   },
   created() {
     if (localStorage.getItem("user")) {
-      this.$store.commit("users/updateUserFromLocal");
+      store.commit("updateUserFromLocal");
     }
   }
 };

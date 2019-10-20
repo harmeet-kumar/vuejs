@@ -1,14 +1,18 @@
-import { axiosApi, setToken, clearToken } from "../api";
+import { setToken, clearToken } from "../api";
+import JwtService from "../../shared/services/jwt.service";
+import ApiService from "../../shared/services/api.service";
+import AuthService from "../../shared/services/auth.service";
+import UsersService from "../../shared/services/users.service"
+import { LOGIN_USER,GET_USERS,UPDATE_USER,SET_USER,GET_SELECTED_USER,
+  SIGNUP_USER,LOGOUT_USER,USER, TOKEN, SET_SELECTED_USER } from "../../shared/constants";
 
-export default {
-  namespaced: true,
-  state: {
-    user: localStorage.getItem("user") || null,
+export const state = {
+    user: localStorage.getItem(USER) || null,
     profile: null,
-    token: localStorage.getItem("token") || "",
+    token: localStorage.getItem(TOKEN) || "",
     selectedUser: null
-  },
-  getters: {
+  }
+export const getters = {
     username(state) {
       return (state.user && state.user.username) || null;
     },
@@ -18,9 +22,10 @@ export default {
     selectedUser(state) {
       return state.selectedUser;
     }
-  },
-  mutations: {
-    setUser(state, payload) {
+  }
+
+  export const mutations = {
+    [SET_USER](state, payload) {
       state.user = payload;
       if (
         window.LocalStorage /* function to detect if localstorage is supported*/
@@ -28,67 +33,110 @@ export default {
         window.localStorage.setItem("kratosUser", payload);
       }
     },
-    logOutUser(state) {
+    [LOGOUT_USER](state) {
       clearToken();
       state.user = null;
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      console.log("Log Out Done");
+      localStorage.removeItem(TOKEN);
+      localStorage.removeItem(USER);
     },
     updateUserFromLocal(state) {
-      state.token = JSON.parse(localStorage.getItem("token"));
-      state.user = JSON.parse(localStorage.getItem("user"));
+      state.token = JSON.parse(localStorage.getItem(TOKEN));
+      state.user = JSON.parse(localStorage.getItem(USER));
     },
-    setSelectedUser(state, payload) {
+    [SET_SELECTED_USER](state, payload) {
       state.selectedUser = payload;
-    }
-  },
-  actions: {
-    getUsers: async function({ commit }) {
-      const user = await axiosApi.get("/user");
-      commit("setUser", user);
     },
-    loginUser: async function({ commit }, { email, password }) {
-      //clearToken();
-      const token = JSON.parse(localStorage.getItem("token"));
-      const user = JSON.parse(localStorage.getItem("user"));
-      console.log(token);
-      console.log(user);
-      console.log(token != null);
+    [UPDATE_USER](state, payload) {
+      state.user = payload;
+    }
+  }
+
+  export const actions = {
+    async [GET_USERS]({ commit }) {
+      try 
+      {
+        AuthService.get()
+        .then((user)=>{
+          commit(SET_USER, user);
+        })
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [LOGIN_USER]({ commit }, { email, password }) {
+      debugger
+      const token = JSON.parse(localStorage.getItem(TOKEN));
+      const user = JSON.parse(localStorage.getItem(USER));
       if (token && user) {
         this.updateUserFromLocal();
         setToken(token);
       } else {
-        try {
-          const response = await axiosApi.post("/users/login", {
-            user: {
-              email,
-              password
+
+          return AuthService.login({user:{email,password}})
+          .then((response)=> {
+            if (response.data.user) {
+              localStorage.setItem(
+                TOKEN,
+                JSON.stringify(response.data.user.token)
+              );
+              localStorage.setItem(USER, JSON.stringify(response.data.user));
+              setToken(response.data.user.token);
+              commit(SET_USER, response.data.user);
             }
-          });
-          if (response.data.user) {
-            localStorage.setItem(
-              "token",
-              JSON.stringify(response.data.user.token)
-            );
-            localStorage.setItem("user", JSON.stringify(response.data.user));
-            console.log(response.data.user.token);
-            console.log(response.data.user);
-            setToken(response.data.user.token);
-            commit("setUser", response.data.user);
-          }
-        } catch (exp) {
-          localStorage.removeItem("token");
-          console.error(exp);
-          throw exp;
-        }
+          })
+
       }
     },
-    getSelectedUser: async function({ commit }, userid) {
-      await axiosApi.get(`/profiles/${userid}`).then(response => {
-        console.log(response.data.profile);
-        commit("setSelectedUser", response.data.profile);
-      });
+    async [SIGNUP_USER]({ commit }, { email, password, username }) {
+      const token = JSON.parse(localStorage.getItem(TOKEN));
+      const user = JSON.parse(localStorage.getItem(USER));
+      if (token && user) {
+        this.updateUserFromLocal();
+        setToken(token);
+      } else {
+        return AuthService.signUp({user:{email,password,username}})
+          .then((response)=>{
+            if (response.data.user) {
+              localStorage.setItem(
+                TOKEN,
+                JSON.stringify(response.data.user.token)
+              );
+              localStorage.setItem(USER, JSON.stringify(response.data.user));
+              setToken(response.data.user.token);
+              commit(SET_USER, response.data.user);
+            }
+          })
+
+      }
+    },
+    async [GET_SELECTED_USER]({ commit }, userid) {
+      try 
+      {
+        return UsersService.getProfile(userid)
+        .then(response => {
+          commit(SET_SELECTED_USER, response.data.profile);
+        });
+      } catch (exp) {
+        throw exp;
+      }
+    },
+    async [UPDATE_USER]({ commit }, user) {
+      return AuthService.update(user)
+        .then(response => {
+          commit(SET_USER, response.data.user);
+        });
+    },
+    checkAuth(context) {
+      if (JwtService.getToken()) {
+        ApiService.setHeader();
+      }
     }
   }
+
+export default {
+  state,
+  actions,
+  mutations,
+  getters
 };

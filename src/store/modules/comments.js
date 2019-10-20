@@ -1,24 +1,24 @@
-import { axiosApi } from "../api";
 
-export default {
-  namespaced: true,
-  state: {
+import CommentsService from "../../shared/services/comments.service";
+import {SET_ARTICLE_COMMENTS,ADD_NEW_COMMENT,DELETE_COMMENT,GET_COMMENTS_FOR_ARTICLE,ADD_COMMENT} from "../../shared/constants"
+
+export const state = {
     allCommentsForArticle: [],
     newComment: null
-  },
-  getters: {
+  }
+export const getters = {
     commentsForArticle(state) {
       return state.allCommentsForArticle;
     }
-  },
-  mutations: {
-    setArticleComments(state, payload) {
+  }
+  export const mutations = {
+    [SET_ARTICLE_COMMENTS](state, payload) {
       state.allCommentsForArticle = payload;
     },
-    addNewComment(state, payload) {
+    [ADD_NEW_COMMENT](state, payload) {
       state.allCommentsForArticle.unshift(payload);
     },
-    deleteComment(state, id) {
+    [DELETE_COMMENT](state, id) {
       state.allCommentsForArticle.splice(
         state.allCommentsForArticle.findIndex(function(i) {
           return i.id === id;
@@ -26,14 +26,14 @@ export default {
         1
       );
     }
-  },
-  actions: {
-    getCommentsForArticle: async function({ commit }, slug) {
+  }
+export const actions = {
+    async [GET_COMMENTS_FOR_ARTICLE]({ commit }, slug) {
       try {
-        await axiosApi.get(`/articles/${slug}/comments`).then(response => {
+        CommentsService.get(slug)
+        .then(response => {
           if (response.data.comments) {
-            console.log(response.data.comments);
-            commit("setArticleComments", response.data.comments);
+            commit(SET_ARTICLE_COMMENTS, response.data.comments);
           }
         });
       } catch (exp) {
@@ -41,56 +41,38 @@ export default {
         throw exp;
       }
     },
-    addCommentToArticle: async function({ commit }, { slug, commentBody }) {
+    async [ADD_COMMENT]({ commit }, { slug, commentBody }) {
       try {
-        const response = await axiosApi.post(
-          `/articles/${slug}/comments`,
-          {
-            comment: {
-              body: commentBody
-            }
-          },
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
+        CommentsService.add(slug,{comment:{body:commentBody}})
+        .then((response)=> {
+          if (response.data.comment) {
+            commit(ADD_NEW_COMMENT, response.data.comment);
           }
-        );
-        if (response.data.comment) {
-          console.log("Add COmment :" + response.data.comment);
-          commit("addNewComment", response.data.comment);
-        }
+        })
       } catch (exp) {
         console.error(exp);
         throw exp;
       }
     },
-    deleteComment: async function({ commit }, { slug, id }) {
+    async [DELETE_COMMENT]({ commit }, { slug, id }) {
       try {
-        const response = await axiosApi.delete(
-          `/articles/${slug}/comments/${id}`,
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
+        CommentsService.remove(slug,id)
+        .then((response)=> {
+          if (response) {
+            commit(DELETE_COMMENT, id);
           }
-        );
-        if (response) {
-          console.log("Delete COmment :" + response.data);
-          commit("deleteComment", id);
-        }
+        })
       } catch (exp) {
         console.error(exp);
         throw exp;
       }
     }
   }
-};
+
+  export default {
+    state,
+    actions,
+    mutations,
+    getters
+  };
+  

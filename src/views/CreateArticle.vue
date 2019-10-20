@@ -53,6 +53,10 @@
   </div>
 </template>
 <script>
+
+import store from "../store"
+import {CREATE_ARTICLE} from "../shared/constants";
+
 export default {
   data: function() {
     return {
@@ -64,17 +68,24 @@ export default {
     };
   },
   methods: {
+    /**
+     * Creates a new article.
+     */
     createNewArticle() {
       this.tagList = this.tagString.split(" ");
-      this.$store.dispatch("articles/createArticle", {
+      store.dispatch(CREATE_ARTICLE, {
         title: this.title,
         description: this.description,
         body: this.body,
         tagList: this.tagList
+      }).then(()=>{
+        this.resetValues();
+        this.$router.push("/");
       });
-      this.resetValues();
-      this.$router.push("/");
     },
+    /**
+     * Reset UI on each article generation.
+     */
     resetValues() {
       this.title = "";
       this.description = "";

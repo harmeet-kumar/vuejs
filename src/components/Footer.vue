@@ -1,7 +1,7 @@
 <template>
   <footer>
     <div class="container">
-      <a href="/" class="logo-font">Kratos</a>
+      <router-link to="/" class="logo-font">Kratos</router-link>
       <span class="attribution">
         A NAGP assignment made by Harmeet Kumar.
       </span>

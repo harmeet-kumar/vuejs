@@ -1,24 +1,57 @@
-import { axiosApi } from "../api";
+import ArticlesService from "../../shared/services/articles.service";
+import FavouriteService from "../../shared/services/favourite.service";
+import UsersService from "../../shared/services/users.service";
+import Vue from "vue";
+import { GET_USER_FEED,CREATE_ARTICLE,SET_ARTICLES,DELETE_ARTICLE,SET_SEARCHED_ARTICLE,
+  FAVOURITE_ARTICLE,UNFAVOURITE_ARTICLE,FOLLOW_USER,UNFOLLOW_USER,GET_ARTICLES,TOKEN,
+  GET_ARTICLE_FROM_SLUG,UPDATE_ARTICLE,ARTICLES_COUNT
+ } from "../../shared/constants";
 
-export default {
-  namespaced: true,
-  state: {
+ export const state = {
     articles: [],
-    searchedArticle: null
-  },
-  getters: {
+    articlesCount: 500,
+    searchedArticle: null,
+    isLoading: false,
+    articlesCount: 0
+  }
+
+  export const getters = {
     articles(state) {
       return state.articles || null;
     },
+    articlesCount(state) {
+      return state.articlesCount;
+    },
     searchedArticle(state) {
       return state.searchedArticle;
+    },
+    articlesCount(state) {
+      return state.articlesCount;
+    },
+    isLoading(state) {
+      return state.isLoading;
     }
-  },
-  mutations: {
-    setArticles(state, payload) {
+  }
+
+export const mutations = {
+    [SET_ARTICLES](state, payload) {
       state.articles = payload;
     },
-    setSearchedArticle(state, payload) {
+    [CREATE_ARTICLE]() {
+
+    },
+    [ARTICLES_COUNT] (state,payload) {
+      state.articlesCount = payload;
+    },
+    [DELETE_ARTICLE](state, slug) {
+      state.articles.splice(
+        state.articles.findIndex(function(i) {
+          return i.slug === slug;
+        }),
+        1
+      );
+    },
+    [SET_SEARCHED_ARTICLE](state, payload) {
       let result = state.articles.find(x => x.slug === payload.slug);
       if (result) {
         payload.favorited = result.favorited;
@@ -26,25 +59,22 @@ export default {
       }
       state.searchedArticle = payload;
     },
-    favouriteArticle(state, slug) {
+    [FAVOURITE_ARTICLE](state, slug) {
       let result = state.articles.find(x => x.slug === slug);
-      if (result) {
-        console.log(result);
+      if (result && !result.favorited) {
         state.articles.find(x => x.slug === slug).favorited = true;
         state.articles.find(x => x.slug === slug).favoritesCount =
           state.articles.find(x => x.slug === slug).favoritesCount + 1;
       }
-      console.log(state.searchedArticle);
-      if (state.searchedArticle && state.searchedArticle.slug === slug) {
+      if (state.searchedArticle && state.searchedArticle.slug === slug && !state.searchedArticle.favorited) {
         state.searchedArticle.favorited = true;
         state.searchedArticle.favoritesCount =
           state.searchedArticle.favoritesCount + 1;
       }
     },
-    unFavouriteArticle(state, slug) {
+    [UNFAVOURITE_ARTICLE](state, slug) {
       let result = state.articles.find(x => x.slug === slug);
-      if (result) {
-        console.log(result);
+      if (result && result.favorited) {
         state.articles.find(x => x.slug === slug).favorited = false;
         state.articles.find(x => x.slug === slug).favoritesCount =
           state.articles.find(x => x.slug === slug).favoritesCount > 0
@@ -52,17 +82,17 @@ export default {
             : 0;
       }
 
-      if (state.searchedArticle && state.searchedArticle.slug === slug) {
+      if (state.searchedArticle && state.searchedArticle.slug === slug && state.searchedArticle.favorited) {
         state.searchedArticle.favorited = false;
         state.searchedArticle.favoritesCount =
           state.searchedArticle.favoritesCount - 1;
       }
     },
-    followUser(state, payload) {
+    [FOLLOW_USER](state, payload) {
       let result = state.articles.find(
         x => x.author.username === payload.username
       );
-      if (result) {
+      if (result && !result.author.following) {
         state.articles.find(
           x => x.author.username === payload.username
         ).author.following = true;
@@ -74,11 +104,11 @@ export default {
         }
       }
     },
-    unFollowUser(state, payload) {
+    [UNFOLLOW_USER](state, payload) {
       let result = state.articles.find(
         x => x.author.username === payload.username
       );
-      if (result) {
+      if (result && result.author.following) {
         state.articles.find(
           x => x.author.username === payload.username
         ).author.following = false;
@@ -90,184 +120,129 @@ export default {
         }
       }
     }
-  },
-  actions: {
-    getArticles: async function({ commit }, getCriteria) {
-      let url = "/articles";
-      if (getCriteria.option != "") {
-        url = url + "?" + getCriteria.option + "=" + getCriteria.value;
-      }
-      console.log(url);
-      await axiosApi
-        .get(url, {
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-            Authorization:
-              "Token " + JSON.parse(window.localStorage.getItem("token"))
-          }
-        })
+  }
+
+export const actions = {
+    async [GET_USER_FEED]({ commit },offset) {
+      try
+      {
+        ArticlesService.userFeed({limit:10,offset:offset})
         .then(response => {
-          console.log(response.data);
-          commit("setArticles", response.data.articles);
+          commit(SET_ARTICLES, response.data.articles);
+          commit(ARTICLES_COUNT,response.data.articlesCount);
         });
-    },
-    getArticleForSlug: async function({ commit }, slug) {
-      await axiosApi.get(`/articles/${slug}`).then(response => {
-        commit("setSearchedArticle", response.data.article);
-        return response.data.article;
-      });
-    },
-    createArticle: async function(newArticle) {
-      try {
-        console.log(JSON.parse(window.localStorage.getItem("token")));
-        await axiosApi.post(
-          "/articles",
-          {
-            article: {
-              title: newArticle.title,
-              description: newArticle.description,
-              body: newArticle.body,
-              tagList: newArticle.tagList
-            }
-          },
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
-          }
-        );
       } catch (exp) {
         console.error(exp);
         throw exp;
       }
     },
-    updateArticle: async function({ commit }, updatedArticle) {
-      try {
-        console.log(JSON.parse(window.localStorage.getItem("token")));
-        await axiosApi.put(
-          `/articles/${updatedArticle.slug}`,
-          {
-            article: {
-              title: updatedArticle.title,
-              description: updatedArticle.description,
-              body: updatedArticle.body,
-              tagList: updatedArticle.tagList
-            }
-          },
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
-          }
-        );
-        commit("setSearchedArticle", null);
-      } catch (exp) {
-        console.error(exp);
-        throw exp;
-      }
-    },
-    favouriteArticle: async function({ commit }, slug) {
-      try {
-        const response = await axiosApi.post(
-          `/articles/${slug}/favorite`,
-          {},
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
-          }
-        );
-        if (response) {
-          console.log("fav");
-          commit("favouriteArticle", slug);
-        }
-      } catch (exp) {
-        console.error(exp);
-        throw exp;
-      }
-    },
-    unFavouriteArticle: async function({ commit }, slug) {
-      try {
-        console.log(JSON.parse(window.localStorage.getItem("token")));
-        const response = await axiosApi.delete(`/articles/${slug}/favorite`, {
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-            Authorization:
-              "Token " + JSON.parse(window.localStorage.getItem("token"))
-          }
+    async [GET_ARTICLES]({ commit }, params) {
+      try
+      {
+        return ArticlesService.query(params).then(response => {
+          commit(SET_ARTICLES, response.data.articles);
+          commit(ARTICLES_COUNT,response.data.articlesCount);
         });
-        if (response) {
-          console.log("UnFav");
-          commit("unFavouriteArticle", slug);
-        }
       } catch (exp) {
         console.error(exp);
         throw exp;
       }
     },
-    followUser: async function({ commit }, usename) {
-      try {
-        const response = await axiosApi.post(
-          `/profiles/${usename}/follow`,
-          {},
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
-          }
-        );
-        if (response.data) {
-          commit("articles/followUser", response.data.profile);
-        }
+    async [GET_ARTICLE_FROM_SLUG]({ commit }, slug) {
+      try 
+      {
+        return ArticlesService.get(slug)
+        .then(response => {
+          commit(SET_SEARCHED_ARTICLE, response.data.article);
+          return response.data.article;
+        });
       } catch (exp) {
-        localStorage.removeItem("token");
         console.error(exp);
         throw exp;
       }
     },
-    unFollowUser: async function({ commit }, usename) {
+    async [CREATE_ARTICLE]({commit},newArticle) {
       try {
-        const response = await axiosApi.delete(
-          `/profiles/${usename}/follow`,
-          {},
-          {
-            headers: {
-              "Content-Type": "application/json;charset=UTF-8",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Headers": "*",
-              Authorization:
-                "Token " + JSON.parse(window.localStorage.getItem("token"))
-            }
-          }
-        );
-        if (response.data) {
-          commit("articles/unFollowUser", response.data.profile);
-        }
+        return ArticlesService.create(newArticle)
+        .then (()=>{
+          commit(CREATE_ARTICLE);
+        })
       } catch (exp) {
-        localStorage.removeItem("token");
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [UPDATE_ARTICLE]({ commit }, updatedArticle) {
+      try {
+          return ArticlesService.update(updatedArticle.slug,updatedArticle)
+          .then(response => {
+            commit(SET_SEARCHED_ARTICLE, response.data.article);
+          });
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [DELETE_ARTICLE]({ commit }, slug) {
+      try {
+        return ArticlesService.destroy(slug)
+          .then(response => {
+            commit(DELETE_ARTICLE, slug);
+          });
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [FAVOURITE_ARTICLE]({ commit }, slug) {
+      try {
+        return FavouriteService.add(slug)
+        .then((response) => {
+          commit(FAVOURITE_ARTICLE, slug);
+        })
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [UNFAVOURITE_ARTICLE]({ commit }, slug) {
+      try {
+        return FavouriteService.remove(slug)
+         .then((response) => {
+          commit(UNFAVOURITE_ARTICLE, slug);
+        });
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [FOLLOW_USER]({ commit }, usename) {
+      try {
+        return UsersService.followUser(usename)
+        .then((response)=> {
+          commit(FOLLOW_USER, response.data.profile);
+        })
+      } catch (exp) {
+        console.error(exp);
+        throw exp;
+      }
+    },
+    async [UNFOLLOW_USER]({ commit }, usename) {
+      try {
+        return UsersService.unFollowUser(usename)
+        .then((response)=>{
+          commit(UNFOLLOW_USER, response.data.profile);
+        })
+      } catch (exp) {
         console.error(exp);
         throw exp;
       }
     }
   }
+
+export default {
+  state,
+  actions,
+  mutations,
+  getters
 };

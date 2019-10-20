@@ -18,20 +18,21 @@
           <div class="articles-toggle">
             <ul class="nav nav-pills outline-active">
               <li class="nav-item">
-                <a
+                <span @click="getUserArticles();resetPagination()">
+                  <router-link to=""
                   class="nav-link"
                   v-bind:class="{ active: userArticles }"
-                  @click="getUserArticles()"
-                  >My Articles</a
-                >
+                  >My Articles</router-link>
+                  </span>
               </li>
               <li class="nav-item">
-                <a
+                <span @click="getUserFavoriteArticle()">
+                  <router-link to=""
                   class="nav-link"
                   v-bind:class="{ active: !userArticles }"
-                  @click="getUserFavoriteArticle()"
-                  >Favorited Articles</a
-                >
+                  @click="getUserFavoriteArticle();resetPagination()"
+                  >Favorited Articles</router-link>
+                </span>
               </li>
             </ul>
           </div>
@@ -44,9 +45,11 @@
               @click="getArticle"
             ></ArticlePreview>
           </div>
+          <Pagination :pages="pages" :currentPage.sync="currentPage" />
           <hr />
           <div class="info" v-if="articles.length == 0">
-            <span>No favorites by the user...</span>
+            <span v-if="userArticles">No Articles created by the user...</span>
+            <span v-if="!userArticles">No favorites by the user...</span>
           </div>
         </div>
       </div>
@@ -54,83 +57,140 @@
   </div>
 </template>
 <script>
+
 import ProfilePreview from "../components/ProfilePreview";
 import ArticlePreview from "../components/ArticlePreview";
+import Pagination from "../components/Pagination";
+import store from "../store";
+import {SELECTED_USER,ARTICLES,USER,GET_ARTICLES,FAVOURITE_ARTICLE,GET_ARTICLE,ACTION_FAV_ARTICLE,
+UNFAVOURITE_ARTICLE,FOLLOW_USER,UNFOLLOW_USER,GET_SELECTED_USER,ARTICLES_COUNT} from "../shared/constants";
 
 export default {
   data: function() {
     return {
       userArticles: false,
-      userid: ""
+      userid: "",
+      currentPage : 1,
+      itemsPerPage: 10,
+      offset: 0,
     };
   },
   components: {
     ArticlePreview,
-    ProfilePreview
+    ProfilePreview,
+    Pagination
   },
   computed: {
+    pages() {
+      if (this.isLoading || store.getters[ARTICLES_COUNT] <= this.itemsPerPage) {
+        return [];
+      }
+      return [
+        ...Array(Math.ceil(store.getters[ARTICLES_COUNT] / this.itemsPerPage)).keys()
+      ].map(e => e + 1);
+    },
     articles() {
-      return this.$store.getters["articles/articles"];
+      return store.getters[ARTICLES];
     },
     activeUser() {
-      return this.$store.getters["users/user"];
+      return store.getters[USER];
     },
     selectedUser() {
-      return this.$store.getters["users/selectedUser"];
+      return store.getters[SELECTED_USER];
+    }
+  },
+  watch: {
+    $route (to){
+      this.userid = to.params.username;
+      this.getSelectedUser(this.userid);
+    },
+    currentPage(newValue) {
+      this.offset = (newValue - 1) * this.itemsPerPage;
+      if(this.userArticles) {
+        this.getUserArticles();
+      } else {
+        this.getUserFavoriteArticle();
+      }
     }
   },
   methods: {
+    /**
+     * Get all the articles created by the user.
+     */
     getUserArticles() {
-      this.$store.dispatch("articles/getArticles", {
-        option: "author",
-        value: this.userid
+      store.dispatch(GET_ARTICLES, {
+        author: this.$route.params.username,
+        limit: 10,
+        offset : this.offset
       });
       this.userArticles = true;
     },
+    /**
+     * Get all the favourite articles of the user.
+     */
     getUserFavoriteArticle() {
-      this.$store.dispatch("articles/getArticles", {
-        option: "favorited",
-        value: this.userid
-      });
-      this.userArticles = false;
+      store.dispatch(GET_ARTICLES, {
+        favorited: this.$route.params.username,
+        limit: 10,
+        offset : this.offset
+      }).then(()=> {
+        this.userArticles = false;
+      })
     },
+    /**
+     * Update the favourites of the signed in user on favorite button click.
+     */
     UpdateFavorites() {
       if (!this.userArticles) {
         this.getUserFavoriteArticle();
       }
     },
+    /**
+     * Update Fav/UnFav for the user.
+     */
     getArticle(arg) {
-      console.log(arg);
-      if (arg.operation === "getArticle") {
+      if (arg.operation === GET_ARTICLE) {
         this.$router.push("/article/" + arg.slug);
-      } else if (arg.operation === "favArticle") {
-        this.$store.dispatch("articles/favouriteArticle", arg.slug).then(() => {
-          this.UpdateFavorites();
-        });
-      } else {
-        this.$store
-          .dispatch("articles/unFavouriteArticle", arg.slug)
+      } 
+      else if (arg.operation === ACTION_FAV_ARTICLE) {
+        store.dispatch(FAVOURITE_ARTICLE, arg.slug).then(() => {
+        }); 
+      }
+       else {
+        store
+          .dispatch(UNFAVOURITE_ARTICLE, arg.slug)
           .then(() => {
-            this.UpdateFavorites();
           });
       }
     },
+    /**
+     * Get the seleceted user.
+     */
     getSelectedUser(userid) {
-      this.$store.dispatch("users/getSelectedUser", userid).then(() => {
+      store.dispatch(GET_SELECTED_USER, userid).then(() => {
         this.getUserArticles(this.userid);
       });
     },
+    /**
+     * Follow the selected user, only if the user is signed in.
+     */
     followUser(args) {
-      if (args.operation == false) {
-        this.$store.dispatch("articles/followUser", args.username);
+      if (args.operation == FOLLOW_USER) {
+        store.dispatch(FOLLOW_USER, args.username);
       } else {
-        this.$store.dispatch("articles/unFollowUser", args.username);
+        store.dispatch(UNFOLLOW_USER, args.username);
       }
+    },
+    /**
+     * Reset pagination on tab switch.
+     */
+    resetPagination() {
+      this.offset = 0;
+      this.currentPage = 1;
     }
   },
   created() {
     this.userid = this.$route.params.username;
-    console.log(this.userid);
     this.getSelectedUser(this.userid);
   }
 };

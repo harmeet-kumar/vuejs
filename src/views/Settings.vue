@@ -4,7 +4,9 @@
       <div class="row">
         <div class="col-md-6 offset-md-3 col-xs-12">
           <h1 class="text-xs-center">Your Settings</h1>
-
+          <ul class="error-messages" v-if="errors.length>0">
+            <li v-for="error in errors" :key="error">{{error}}</li>
+          </ul>
           <form>
             <fieldset>
               <fieldset class="form-group">
@@ -19,7 +21,7 @@
                 <input
                   class="form-control form-control-lg"
                   v-model="username"
-                  type="text"
+                  type="text" required maxlength="20" minlength="1"
                   placeholder="Your Name"
                 />
               </fieldset>
@@ -35,19 +37,19 @@
                 <input
                   class="form-control form-control-lg"
                   v-model="email"
-                  type="text"
+                  type="email" required
                   placeholder="Email"
                 />
               </fieldset>
               <fieldset class="form-group">
                 <input
                   class="form-control form-control-lg"
-                  v-model="pwd"
-                  type="password"
+                  v-model="password"
+                  type="password" minlength="8"
                   placeholder="Password"
                 />
               </fieldset>
-              <button class="btn btn-lg btn-primary pull-xs-right">
+              <button class="btn btn-lg btn-primary pull-xs-right" @click="updateUser">
                 Update Settings
               </button>
             </fieldset>
@@ -62,35 +64,64 @@
   </div>
 </template>
 <script>
+import store from "../store";
+import {UPDATE_USER,USER,LOGOUT_USER} from "../shared/constants";
+
 export default {
   data: function() {
     return {
       imageURL: "",
-      pwd: ""
+      password: "",
+      bio: "",
+      username : "",
+      email: "",
+      currentUser: '',
+      errors: []
     };
   },
   computed: {
-    username() {
-      return this.$store.getters["users/user"]
-        ? this.$store.getters["users/user"].username
-        : null;
-    },
-    email() {
-      return this.$store.getters["users/user"]
-        ? this.$store.getters["users/user"].email
-        : null;
-    },
-    bio() {
-      return this.$store.getters["users/user"]
-        ? this.$store.getters["users/user"].bio
-        : null;
-    }
+    
   },
   methods: {
-    updateUser() {},
+    /**
+     * Update the User Profile.
+     */
+    updateUser() {
+      let user = {
+        username : this.username != '' ? this.username : this.currentUser.username,
+        password : this.password != '' ? this.password : this.currentUser.password,
+        email : this.email != '' ? this.email : this.currentUser.email,
+        image : this.imageURL != '' ? this.imageURL : this.currentUser.image,
+        bio : this.bio != '' ? this.bio : this.currentUser.bio,
+      };
+      try {
+        store.dispatch(UPDATE_USER,user).then((response)=> {
+          this.$router.push("/"+this.username);
+        })
+      } catch(err) {
+        let error = err.response.data.errors;
+        for (var key in error){
+          this.errors.push(key+" "+error[key]);   
+        }
+      }
+    },
+    /**
+     * LogOut the signed in User.
+     */
     logOut() {
-      this.$store.commit("users/logOutUser");
+      store.commit(LOGOUT_USER);
       this.$router.push("/");
+    }
+  },
+  created() {
+    this.errors = [];
+    let user = store.getters[USER];
+    if (user) {
+      this.username = user.username;
+      this.bio = user.bio;
+      this.email = user.email;
+      this.imageURL = user.image;
+      this.currentUser = user;
     }
   }
 };

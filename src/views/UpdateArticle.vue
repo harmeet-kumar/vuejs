@@ -53,31 +53,65 @@
   </div>
 </template>
 <script>
+import store from "../store";
+import {UPDATE_ARTICLE,SET_SEARCHED_ARTICLE,GET_ARTICLE_FROM_SLUG,SEARCHED_ARTICLE} from "../shared/constants";
+
 export default {
   data: function() {
     return {
       title: "",
       description: "",
       body: "",
-      tagList: ""
+      tagList: "",
+      slug: "",
+      article: null
     };
   },
-  computed: {
-    article() {
-      return this.updateProps(this.$store.getters["searchedArticle"]);
-    }
-  },
   methods: {
+    /**
+     * Update the UI properties
+     */
     updateProps(article) {
       if (article) {
         this.title = article.title;
         this.description = article.description;
         this.body = article.body;
-        this.tagList = article.tagList.toString();
+        this.tagList = article.tagList.join(' ');
+        this.slug = article.slug
+        this.article = article
+      } else {
+        this.$router.push("/article/" + this.$route.params.id)
       }
     },
+    /**
+     * Update the article.
+     */
     updateArticle() {
-      this.$store.dispatch("updateArticle", this.article.slug);
+      this.article.title = this.title;
+      this.article.description = this.description;
+      this.article.body = this.body;
+      this.article.tagList = this.tagList.split(" ");
+      store.dispatch(UPDATE_ARTICLE, {title : this.title,
+        description : this.description,
+        body : this.body,
+        slug : this.slug,
+        tagList : this.tagList.split(" ")}).then (() => {
+        store.commit(SET_SEARCHED_ARTICLE, this.article);
+        store.dispatch(GET_ARTICLE_FROM_SLUG, this.$route.params.id).then((response)=>{
+             this.$router.push("/article/"+ this.$route.params.id);
+           })
+        });
+    }
+  },
+  created() {
+    if (store.getters[SEARCHED_ARTICLE]) {
+      this.updateProps(store.getters[SEARCHED_ARTICLE]);
+    } else {
+      store
+      .dispatch(GET_ARTICLE_FROM_SLUG, this.$route.params.id)
+      .then(() => {
+        this.updateProps(store.getters[SEARCHED_ARTICLE]);
+      });
     }
   }
 };

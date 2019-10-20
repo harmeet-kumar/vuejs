@@ -5,11 +5,11 @@
         <div class="col-md-6 offset-md-3 col-xs-12">
           <h1 class="text-xs-center">Sign up</h1>
           <p class="text-xs-center">
-            <a href="">Have an account?</a>
+            <router-link to="login">Have an account?</router-link>
           </p>
 
-          <ul class="error-messages">
-            <li>That email is already taken</li>
+          <ul class="error-messages" v-if="errors.length > 0">
+            <li v-for="error in errors" :key="error">{{error}}</li>
           </ul>
 
           <form>
@@ -17,6 +17,7 @@
               <input
                 class="form-control form-control-lg"
                 type="text"
+                v-model="username"
                 placeholder="Your Name"
               />
             </fieldset>
@@ -24,6 +25,7 @@
               <input
                 class="form-control form-control-lg"
                 type="text"
+                v-model="email"
                 placeholder="Email"
               />
             </fieldset>
@@ -31,10 +33,11 @@
               <input
                 class="form-control form-control-lg"
                 type="password"
+                v-model="password"
                 placeholder="Password"
               />
             </fieldset>
-            <button class="btn btn-lg btn-primary pull-xs-right">
+            <button type="button" class="btn btn-lg btn-primary pull-xs-right" @click="signUp">
               Sign up
             </button>
           </form>
@@ -43,3 +46,41 @@
     </div>
   </div>
 </template>
+<script>
+
+import store from "../store";
+import {SIGNUP_USER} from "../shared/constants";
+
+export default {
+  data : function() {
+    return {
+        email: '',
+        password: '',
+        username: '',
+        errors: []
+      };
+  },
+  methods: {
+    /**
+     * Register the User.
+     */
+    signUp() {
+      this.errors = [];
+      store.dispatch(SIGNUP_USER, {
+          email: this.email,
+          password : this.password,
+          username : this.username
+        }).then(() => {
+          this.errors = [];
+          this.$router.push("/");
+        }).catch(err => {
+          let error = err.response.data.errors;
+          for (var key in error) {
+            this.errors.push(key+" " + error[key]);   
+          }
+      });
+    }
+  }
+}
+
+</script>

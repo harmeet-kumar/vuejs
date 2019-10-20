@@ -5,11 +5,11 @@
         <div class="col-md-6 offset-md-3 col-xs-12">
           <h1 class="text-xs-center">Sign in</h1>
           <p class="text-xs-center">
-            <a href="">Need an account?</a>
+            <router-link to="signup">Need an account?</router-link>
           </p>
 
-          <ul class="error-messages">
-            <li v-if="errors.length > 0">Invalid Email/Password</li>
+          <ul class="error-messages" v-if="errors.length>0">
+            <li v-for="error in errors" :key="error">{{error}}</li>
           </ul>
 
           <form>
@@ -29,7 +29,7 @@
                 placeholder="Password"
               />
             </fieldset>
-            <button @click="login" class="btn btn-lg btn-primary pull-xs-right">
+            <button @click="login" type="button" class="btn btn-lg btn-primary pull-xs-right">
               Sign in
             </button>
           </form>
@@ -40,6 +40,9 @@
 </template>
 
 <script>
+import store from "../store";
+import {LOGIN_USER} from "../shared/constants";
+
 export default {
   data: function() {
     return {
@@ -49,9 +52,12 @@ export default {
     };
   },
   methods: {
+    /**
+     * Login user on login button click
+     */
     login() {
-      this.$store
-        .dispatch("users/loginUser", {
+      this.errors = [];
+      store.dispatch(LOGIN_USER, {
           email: this.email,
           password: this.password
         })
@@ -60,19 +66,15 @@ export default {
           this.$router.push("/");
         })
         .catch(err => {
-          this.errors.push(err);
+            let error = err.response.data.errors;
+            for (var key in error) {
+              this.errors.push(key+" " + error[key]);   
+            }
         });
+    },
+    created() {
+      this.errors = [];
     }
   }
-  // beforeCreate () {
-  //   clearToken();
-  //   if (window.localStorage/* function to detect if localstorage is supported*/) {
-  //     const user = window.localStorage.getItem('kratosUser');
-  //     console.log(user);
-  //     if(user != null) {
-  //       this.$store.commit('user/setUser',user);
-  //     }
-  //   }
-  // }
 };
 </script>
